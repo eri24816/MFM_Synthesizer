@@ -1,10 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import *
+from scipy.signal import iirfilter, freqz, filtfilt, hilbert
 import librosa
 import soundfile as sf
 import math
-import pytsmod as tsm
 import os
 import json
 
@@ -16,7 +15,7 @@ vib_amp = [0.14357095774419332, 0.33635365095684117, 0.25391482481587757, 0.0507
 vib_freq = 6
 
 
-class parametersGenreration:
+class parametersGeneration:
     def __init__(self):
         self.fs = 44100
         self.max_freq = 20000
@@ -64,10 +63,10 @@ class parametersGenreration:
             signal = y_clip
             for _ in range(4):
                 signal = filtfilt(b, a, signal)
-            analytic_signal = hilbert(signal)
+            analytic_signal :np.ndarray = hilbert(signal) # type: ignore
             instantaneous_phase = np.unwrap(np.angle(analytic_signal))
             instantaneous_frequency = (np.diff(instantaneous_phase) / (2.0*np.pi) * self.fs)
-            new_base_freq = np.mean(instantaneous_frequency) / 2
+            new_base_freq = np.mean(instantaneous_frequency[8000:80000]) / 2 # use 0.2s to 2s for freq estimation
             diff = new_base_freq - base_freq
         return new_base_freq, diff
     

@@ -1,6 +1,11 @@
-from src.parametersGeneration import *
+from pathlib import Path
+from src.parametersGeneration import parametersGeneration
+import numpy as np
+import math
+import librosa
+from scipy.signal import iirfilter, freqz, hilbert
 
-class tableGeneration(parametersGenreration):
+class tableGeneration(parametersGeneration):
     def __init__(self):
         super().__init__()
         self.par_sr = 100
@@ -16,26 +21,22 @@ class tableGeneration(parametersGenreration):
             out[i] = y[floor] + cur_diff * (pos - floor)
         return out
         
-    def implement(self, instr, genre, note, seq):
-        y_ori, _ = librosa.load(f'../original_file/{instr}/{genre}/note{note}-{seq}.wav', sr=self.fs)
+    def implement(self, audio_path:Path, table_path:Path, pitch:int, max_n_partial:int=9999999):
+        y_ori, _ = librosa.load(audio_path, sr=self.fs)
         # length = y_ori.shape[0] - self.attack_len - self.release_len + 2 * self.overlap_len
         length = y_ori.shape[0] - self.attack_len + self.overlap_len
         mixtone = np.zeros(shape=(length,) , dtype=np.float32)
-        base_freq = 440 * np.power(2, (note-69)/12)
+        base_freq = 440 * np.power(2, (pitch-69)/12)
         start = (self.attack_len-self.overlap_len)
         # end = (-self.release_len+self.overlap_len)
         # t = np.arange(length + self.attack_len + self.release_len - 2 * self.overlap_len) / self.fs
         t = np.arange(length + self.attack_len - self.overlap_len) / self.fs
         t_sus = t[start:]
-
-    
-        if instr == 'cello':
-            self.max_freq = 16000
             
         # initial hilbert for base frequency testing
         base_freq, diff = self.init_base_freq(y_ori, base_freq, order=4)
-        max_partial = math.floor(self.max_freq / base_freq)
-        print(f'note{note}-{seq}, f0(closed): {base_freq} Hz, max_partial: {max_partial}')
+        n_partial = min(max_n_partial, math.floor(self.max_freq / base_freq))
+        print(f'note{pitch}, f0(closed): {base_freq} Hz, max_partial: {n_partial}')
         
         
 
@@ -44,26 +45,24 @@ class tableGeneration(parametersGenreration):
         pars['sampleRate'] = self.fs
         pars['par_sr'] = self.par_sr
         pars['ori_sec'] = self.ori_sec
-        pars['partialAmount'] = max_partial
+        pars['partialAmount'] = n_partial
         pars['pitch'] = base_freq
         pars['coloredCutoff1'] = float()
         pars['coloredCutoff2'] = float()
         pars['alphaGlobal'] = list(list())
-        pars['alphaLocal'] = dict()
-        pars['alphaLocal']['env'] = list(list())
-        pars['alphaLocal']['spreadingCenter'] = list(list())
-        pars['alphaLocal']['spreadingFactor'] = list(list())
-        pars['alphaLocal']['noiseGain'] = list(list())
-        pars['alphaLocal']['gain'] = list()
+        pars['alphaLocal.env'] = list(list())
+        pars['alphaLocal.spreadingCenter'] = list(list())
+        pars['alphaLocal.spreadingFactor'] = list(list())
+        pars['alphaLocal.noiseGain'] = list(list())
+        pars['alphaLocal.gain'] = list()
         pars['totalEnv'] = list()
         pars['magGlobal'] = list(list())
         pars['magRatio'] = list(list())
-        pars['magLocal'] = dict()
-        pars['magLocal']['env'] = list(list())
-        pars['magLocal']['spreadingCenter'] = list(list())
-        pars['magLocal']['spreadingFactor'] = list(list())
-        pars['magLocal']['noiseGain'] = list(list())
-        pars['magLocal']['gain'] = list()
+        pars['magLocal.env'] = list(list())
+        pars['magLocal.spreadingCenter'] = list(list())
+        pars['magLocal.spreadingFactor'] = list(list())
+        pars['magLocal.noiseGain'] = list(list())
+        pars['magLocal.gain'] = list()
         
         pars['attackLen'] = self.attack_len
         pars['releaseLen'] = self.release_len
@@ -90,32 +89,41 @@ class tableGeneration(parametersGenreration):
         
 
         # load noise
-        noise, _ = librosa.load('./colored_noise.wav', sr=self.fs * (2000 / (base_freq / 2)))
-        noise2, _ = librosa.load('./colored_noise.wav', sr=self.fs * (2000 / (base_freq / 8)))
+        noise, _ = librosa.load('parameters_extract/colored_noise.wav', sr=self.fs * (2000 / (base_freq / 2)))
+        noise2, _ = librosa.load('parameters_extract/colored_noise.wav', sr=self.fs * (2000 / (base_freq / 8)))
         pars['coloredCutoff1'] = (base_freq / 2)
         pars['coloredCutoff2'] = (base_freq / 8)
 
         mag_seg = []
-        for partial in range(1, max_partial + 1):
+        for partial in range(1, n_partial + 1):
             over_freq = base_freq * partial
+
+
             signal = self.filter_apply(y_ori, base_freq, over_freq, cutoff_var, self.filter_order, self.filter_times)
             mag, alpha = self.HT(signal, length, over_freq)
             
-            # hilbert drop clip (attack & release)
-            pars['magAttack'].append(mag[:self.attack_len].tolist())
-            # pars['magRelease'].append(mag[-self.release_len:].tolist())
-            mag_sus = mag[start:]
-            alpha_sus = alpha[start:]
+            '''
+            Attack
+            '''
+
+            # # hilbert drop clip (attack & release)
+            # pars['magAttack'].append(mag[:self.attack_len].tolist())
+            # # pars['magRelease'].append(mag[-self.release_len:].tolist())
+            # mag_sus = mag[start:]
+            # alpha_sus = alpha[start:]
             
-            # alpha extract
-            z = np.polyfit(t_sus, alpha_sus, 1)
-            p = np.poly1d(z)
-            alpha -= p(t)
-            alpha_attack = alpha[:self.attack_len]
-            alpha_release = alpha[-self.release_len:]
-            pars['alphaAttack'].append(alpha_attack.tolist())
-            # pars['alphaRelease'].append(alpha_release.tolist())
+            # # alpha extract
+            # z = np.polyfit(t_sus, alpha_sus, 1)
+            # p = np.poly1d(z)
+            # alpha -= p(t)
+            # alpha_attack = alpha[:self.attack_len]
+            # alpha_release = alpha[-self.release_len:]
+            # pars['alphaAttack'].append(alpha_attack.tolist())
+            # # pars['alphaRelease'].append(alpha_release.tolist())
             
+            '''
+            Sustain
+            '''
             
             alpha_global = self.timesfilt(split_b, split_a, alpha, self.split_filter_times)
             alpha_local = alpha - alpha_global
@@ -130,8 +138,8 @@ class tableGeneration(parametersGenreration):
             
             spread_fac1 = 0.01
             spread_fac2 = 0.3
-            pars['alphaLocal']['spreadingFactor'].append([spread_fac1, spread_fac2])
-            pars['magLocal']['spreadingFactor'].append([spread_fac1, spread_fac2])
+            pars['alphaLocal.spreadingFactor'].append([spread_fac1, spread_fac2])
+            pars['magLocal.spreadingFactor'].append([spread_fac1, spread_fac2])
             
             ################################
             # alpha local part hilbert analysis
@@ -140,7 +148,7 @@ class tableGeneration(parametersGenreration):
             
             center1 = 0
             center2 = base_freq
-            pars['alphaLocal']['spreadingCenter'].append([center1, center2])
+            pars['alphaLocal.spreadingCenter'].append([center1, center2])
             b3, a3 = iirfilter(self.filter_order, Wn=base_freq, fs=self.fs, ftype="butter", btype="lowpass")
             local_1st = self.timesfilt(b3, a3, local, self.filter_times / 2)
             local_2nd = local - local_1st
@@ -166,14 +174,14 @@ class tableGeneration(parametersGenreration):
             recon_local_2nd_energy = np.mean(np.power(recon_local_2nd, 2))
             recon_local_2nd_scale = np.sqrt(local_2nd_energy / recon_local_2nd_energy)
             recon_local_2nd = recon_local_2nd * recon_local_2nd_scale
-            pars['alphaLocal']['env'].append([self.linearResample(noise_env1, self.par_sr), self.linearResample(noise_env2, self.par_sr)])
-            pars['alphaLocal']['noiseGain'].append([recon_local_1st_scale, recon_local_2nd_scale])
+            pars['alphaLocal.env'].append([self.linearResample(noise_env1, self.par_sr), self.linearResample(noise_env2, self.par_sr)])
+            pars['alphaLocal.noiseGain'].append([recon_local_1st_scale, recon_local_2nd_scale])
             
             recon_local = recon_local_1st + recon_local_2nd
             recon_local_energy = np.mean(np.power(recon_local, 2))
             recon_alpha_local_scale = np.sqrt(alpha_local_energy / recon_local_energy)
             recon_alpha_local = recon_local * recon_alpha_local_scale
-            pars['alphaLocal']['gain'].append(recon_alpha_local_scale)
+            pars['alphaLocal.gain'].append(recon_alpha_local_scale)
             
             ################################
             # mag local part hilbert analysis
@@ -182,7 +190,7 @@ class tableGeneration(parametersGenreration):
             
             center1 = 0
             center2 = base_freq
-            pars['magLocal']['spreadingCenter'].append([center1, center2])
+            pars['magLocal.spreadingCenter'].append([center1, center2])
             b3, a3 = iirfilter(self.filter_order, Wn=base_freq, fs=self.fs, ftype="butter", btype="lowpass")
             local_1st = self.timesfilt(b3, a3, local, self.filter_times / 2)
             local_2nd = local - local_1st
@@ -208,14 +216,14 @@ class tableGeneration(parametersGenreration):
             recon_local_2nd_energy = np.mean(np.power(recon_local_2nd, 2))
             recon_local_2nd_scale = np.sqrt(local_2nd_energy / recon_local_2nd_energy)
             recon_local_2nd = recon_local_2nd * recon_local_2nd_scale
-            pars['magLocal']['env'].append([self.linearResample(noise_env1, self.par_sr), self.linearResample(noise_env2, self.par_sr)])
-            pars['magLocal']['noiseGain'].append([recon_local_1st_scale, recon_local_2nd_scale])
+            pars['magLocal.env'].append([self.linearResample(noise_env1, self.par_sr), self.linearResample(noise_env2, self.par_sr)])
+            pars['magLocal.noiseGain'].append([recon_local_1st_scale, recon_local_2nd_scale])
 
             recon_local = recon_local_1st + recon_local_2nd
             recon_local_energy = np.mean(np.power(recon_local, 2))
             recon_mag_local_scale = np.sqrt(mag_local_energy / recon_local_energy)
             recon_mag_local = recon_local * recon_mag_local_scale
-            pars['magLocal']['gain'].append(recon_mag_local_scale) 
+            pars['magLocal.gain'].append(recon_mag_local_scale) 
             
             # noisy_fac = 1.0
             # recon_alpha = alpha_global + recon_alpha_local * noisy_fac
@@ -234,6 +242,6 @@ class tableGeneration(parametersGenreration):
             pars['magRatio'].append(self.linearResample(mag_global[start:] / envelope_sus, self.par_sr))
             
         # sf.write(f'../note_out/{genre}_note{note}_{seq}.wav', mixtone, self.fs)
-        with open(f'../table/{instr}/{genre}/note{note}-{seq}.json', 'w+') as jf:
-            j = json.dumps(pars, indent=4)
-            jf.write(j)
+        with open(table_path, 'wb') as f:
+            np.savez(f, **pars)
+            

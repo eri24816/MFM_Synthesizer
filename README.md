@@ -1,0 +1,3 @@
+- put 151VNNVM.WAV in data/
+- run data_proc/split.py
+- run parameters_extract/build_basic_table.py

@@ -1,16 +1,18 @@
-from src.tableGeneration import *
-import os 
+from src.tableGeneration import tableGeneration
+from pathlib import Path
+instr = 'violin'
+genre = 'sustain'
+pitch_start = 55
+pitch_end = 100
 
-instr = 'cello'
-genre = 'staccato_m'
-# genre = 'long'
+tg = tableGeneration()
+if instr == 'cello':
+    tg.max_freq = 2000
 
-TG = tableGeneration()
-
-for note in range(49, 58):
-# for note in range(67,80):
-    seq = 1
-    while os.path.exists(f'../original_file/{instr}/{genre}/note{note}-{seq}.wav'):
-        TG.implement(instr, genre, note, seq)
-        seq += 1
+for pitch in range(pitch_start,pitch_end+1):
+    audio_path = Path(f'data/{instr}/{genre}/audio/{pitch}.wav')
+    table_path = Path(f'data/{instr}/{genre}/table/{pitch}.npz')
+    audio_path.parent.mkdir(parents=True,exist_ok=True)
+    table_path.parent.mkdir(parents=True,exist_ok=True)
+    tg.implement(audio_path, table_path, pitch, max_n_partial=30)
         
