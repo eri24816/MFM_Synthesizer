@@ -1,5 +1,5 @@
 from pathlib import Path
-from src.parametersGeneration import parametersGeneration
+from .parametersGeneration import parametersGeneration
 import numpy as np
 import math
 import librosa
@@ -11,18 +11,32 @@ class tableGeneration(parametersGeneration):
         self.par_sr = 100
         self.ori_sec = 3
         
-    def linearResample(self, y, target_sr):
-        l = y.shape[0] - 1
-        out = [0] * target_sr
-        for i in range(target_sr):
-            pos = l / target_sr * i
-            floor = int(math.floor(pos))
-            cur_diff = (y[floor+1] - y[floor])
-            out[i] = y[floor] + cur_diff * (pos - floor)
-        return out
+    # This function is copied from https://github.com/nwhitehead/swmixer/blob/master/swmixer.py, 
+    #             which was released under LGPL. 
+    def resample(self, signal, input_fs, output_fs):
+    
+        scale = output_fs / input_fs
+        # calculate new length of sample
+        n = round(len(signal) * scale)
+    
+        # use linear interpolation
+        # endpoint keyword means than linspace doesn't go all the way to 1.0
+        # If it did, there are some off-by-one errors
+        # e.g. scale=2.0, [1,2,3] should go to [1,1.5,2,2.5,3,3]
+        # but with endpoint=True, we get [1,1.4,1.8,2.2,2.6,3]
+        # Both are OK, but since resampling will often involve
+        # exact ratios (i.e. for 44100 to 22050 or vice versa)
+        # using endpoint=False gets less noise in the resampled sound
+        resampled_signal = np.interp(
+            np.linspace(0.0, 1.0, n, endpoint=False),  # where to interpret
+            np.linspace(0.0, 1.0, len(signal), endpoint=False),  # known positions
+            signal,  # known data points
+        )
+        return resampled_signal
         
     def implement(self, audio_path:Path, table_path:Path, pitch:int, max_n_partial:int=9999999):
         y_ori, _ = librosa.load(audio_path, sr=self.fs)
+        y_ori = y_ori.astype(np.float32)
         # length = y_ori.shape[0] - self.attack_len - self.release_len + 2 * self.overlap_len
         length = y_ori.shape[0] - self.attack_len + self.overlap_len
         mixtone = np.zeros(shape=(length,) , dtype=np.float32)
@@ -32,7 +46,7 @@ class tableGeneration(parametersGeneration):
         # t = np.arange(length + self.attack_len + self.release_len - 2 * self.overlap_len) / self.fs
         t = np.arange(length + self.attack_len - self.overlap_len) / self.fs
         t_sus = t[start:]
-            
+        
         # initial hilbert for base frequency testing
         base_freq, diff = self.init_base_freq(y_ori, base_freq, order=4)
         n_partial = min(max_n_partial, math.floor(self.max_freq / base_freq))
@@ -71,6 +85,7 @@ class tableGeneration(parametersGeneration):
         pars['alphaRelease'] = list(list())
         pars['magAttack'] = list(list())
         pars['magRelease'] = list(list())
+        pars['attackWave'] = list(list())
         
         # band pass filter width test
         b, a = iirfilter(self.filter_order, Wn=(base_freq * 0.5, base_freq * 1.5), fs=self.fs, ftype="butter", btype="band")
@@ -85,7 +100,7 @@ class tableGeneration(parametersGeneration):
         split_b, split_a = iirfilter(self.split_filter_order, Wn=self.split_filter_cutoff, fs=self.fs, ftype="butter", btype="lowpass")
         envelope = self.timesfilt(split_b, split_a, mag, self.split_filter_times)
         envelope_sus = envelope[start:]
-        pars['totalEnv'] = self.linearResample(envelope_sus, self.par_sr)
+        pars['totalEnv'] = self.resample(envelope_sus, self.fs, self.par_sr)
         
 
         # load noise
@@ -93,6 +108,9 @@ class tableGeneration(parametersGeneration):
         noise2, _ = librosa.load('parameters_extract/colored_noise.wav', sr=self.fs * (2000 / (base_freq / 8)))
         pars['coloredCutoff1'] = (base_freq / 2)
         pars['coloredCutoff2'] = (base_freq / 8)
+
+
+        pars['attackWave'].append(y_ori[:self.attack_len])
 
         mag_seg = []
         for partial in range(1, n_partial + 1):
@@ -105,6 +123,7 @@ class tableGeneration(parametersGeneration):
             '''
             Attack
             '''
+
 
             # # hilbert drop clip (attack & release)
             # pars['magAttack'].append(mag[:self.attack_len].tolist())
@@ -174,7 +193,7 @@ class tableGeneration(parametersGeneration):
             recon_local_2nd_energy = np.mean(np.power(recon_local_2nd, 2))
             recon_local_2nd_scale = np.sqrt(local_2nd_energy / recon_local_2nd_energy)
             recon_local_2nd = recon_local_2nd * recon_local_2nd_scale
-            pars['alphaLocal.env'].append([self.linearResample(noise_env1, self.par_sr), self.linearResample(noise_env2, self.par_sr)])
+            pars['alphaLocal.env'].append([self.resample(noise_env1, self.fs, self.par_sr), self.resample(noise_env2, self.fs, self.par_sr)])
             pars['alphaLocal.noiseGain'].append([recon_local_1st_scale, recon_local_2nd_scale])
             
             recon_local = recon_local_1st + recon_local_2nd
@@ -216,7 +235,7 @@ class tableGeneration(parametersGeneration):
             recon_local_2nd_energy = np.mean(np.power(recon_local_2nd, 2))
             recon_local_2nd_scale = np.sqrt(local_2nd_energy / recon_local_2nd_energy)
             recon_local_2nd = recon_local_2nd * recon_local_2nd_scale
-            pars['magLocal.env'].append([self.linearResample(noise_env1, self.par_sr), self.linearResample(noise_env2, self.par_sr)])
+            pars['magLocal.env'].append([self.resample(noise_env1, self.fs, self.par_sr), self.resample(noise_env2, self.fs, self.par_sr)])
             pars['magLocal.noiseGain'].append([recon_local_1st_scale, recon_local_2nd_scale])
 
             recon_local = recon_local_1st + recon_local_2nd
@@ -237,9 +256,15 @@ class tableGeneration(parametersGeneration):
             # mixtone += tone
             
             # pars write
-            pars['alphaGlobal'].append(self.linearResample(alpha_global[start:], self.par_sr))
-            pars['magGlobal'].append(self.linearResample(mag_global[start:], self.par_sr))
-            pars['magRatio'].append(self.linearResample(mag_global[start:] / envelope_sus, self.par_sr))
+            pars['alphaGlobal'].append(self.resample(alpha_global[start:], self.fs, self.par_sr))
+            pars['magGlobal'].append(self.resample(mag_global[start:], self.fs, self.par_sr))
+            pars['magRatio'].append(self.resample(mag_global[start:] / envelope_sus, self.fs, self.par_sr))
+        
+        # convert all float64 to float32
+        for key, value in pars.items():
+            value = np.array(value)
+            if value.dtype == np.float64:
+                pars[key] = value.astype(np.float32)
             
         # sf.write(f'../note_out/{genre}_note{note}_{seq}.wav', mixtone, self.fs)
         with open(table_path, 'wb') as f:

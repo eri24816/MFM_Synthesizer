@@ -71,10 +71,10 @@ class parametersGeneration:
         return new_base_freq, diff
     
     def HT(self, signal, length, over_freq):
-        t = np.arange(length + self.attack_len + self.release_len - 2 * self.overlap_len) / self.fs
+        t = np.arange(length + self.attack_len + self.release_len - 2 * self.overlap_len, dtype=np.float32) / self.fs
         analytic_signal = hilbert(signal)
-        instantaneous_phase = np.unwrap(np.angle(analytic_signal))
-        instantaneous_magnitude = np.abs(analytic_signal)
+        instantaneous_phase = np.unwrap(np.angle(analytic_signal)).astype(np.float32)
+        instantaneous_magnitude = np.abs(analytic_signal).astype(np.float32)
         origin_phase = t * (2 * np.pi * over_freq) - 0.5 * np.pi
         phase_diff = instantaneous_phase - origin_phase
         return instantaneous_magnitude, phase_diff

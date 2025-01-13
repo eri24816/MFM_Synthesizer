@@ -63,6 +63,7 @@ def detect_onsets(audio,n_fft=64,visualize=False):
         plt.plot(np.arange(0,stop-start-hop,hop),-0.02*off_positive_edge[start//hop:start//hop+n])
         plt.vlines(np.array(onsets) * hop-start,0,0.08,color='black')
         plt.xlim(0,stop-start)
+        plt.show(block=True)
 
     return np.array(onsets) * hop
 
