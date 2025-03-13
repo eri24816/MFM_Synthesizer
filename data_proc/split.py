@@ -68,11 +68,11 @@ def detect_onsets(audio,n_fft=64,visualize=False):
     return np.array(onsets) * hop
 
 
-input_path = r'.\data\151VNNVM.WAV'
-output_path = r'.\data\violin\sustain\audio'
+input_path = r'.\data\171VCNVM.WAV'
+output_path = r'.\data\cello\sustain\audio'
 
 if __name__ == '__main__':
-    from pathlib import Path
+    from pathlib import Path 
     import soundfile as sf
 
 
@@ -86,5 +86,6 @@ if __name__ == '__main__':
     
     # save segments
     Path(output_path).mkdir(parents=True,exist_ok=True)
-    for i,s in enumerate(segments[0:13] + segments[19:26] + segments[32:39] + segments[45:]):
-        sf.write(f'{output_path}/{55+i}.wav',s,sr)
+    # for i,s in enumerate(segments[0:13] + segments[19:26] + segments[32:39] + segments[45:]):
+    for i,s in enumerate(segments[0:7] + segments[13:20] + segments[26:33] + segments[39:]):
+        sf.write(f'{output_path}/{36+i}.wav',s,sr)

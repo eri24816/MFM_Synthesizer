@@ -61,17 +61,23 @@ class tableGeneration(parametersGeneration):
         pars['ori_sec'] = self.ori_sec
         pars['partialAmount'] = n_partial
         pars['pitch'] = base_freq
+        
         pars['coloredCutoff1'] = float()
         pars['coloredCutoff2'] = float()
+
         pars['alphaGlobal'] = list(list())
+
         pars['alphaLocal.env'] = list(list())
         pars['alphaLocal.spreadingCenter'] = list(list())
         pars['alphaLocal.spreadingFactor'] = list(list())
         pars['alphaLocal.noiseGain'] = list(list())
         pars['alphaLocal.gain'] = list()
+
         pars['totalEnv'] = list()
+
         pars['magGlobal'] = list(list())
         pars['magRatio'] = list(list())
+
         pars['magLocal.env'] = list(list())
         pars['magLocal.spreadingCenter'] = list(list())
         pars['magLocal.spreadingFactor'] = list(list())

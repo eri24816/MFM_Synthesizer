@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import iirfilter, freqz, filtfilt, hilbert
+from scipy.signal import iirfilter, freqz, filtfilt, hilbert, sosfiltfilt
 import librosa
 import soundfile as sf
 import math
@@ -58,11 +58,11 @@ class parametersGeneration:
 
     def init_base_freq(self, y_clip, base_freq, order):
         for _ in range(3):
-            b, a = iirfilter(order, Wn=(base_freq * 1.75, base_freq * 2.25), fs=self.fs, ftype="butter", btype="band")
+            sos = iirfilter(order, Wn=(base_freq * 1.75, base_freq * 2.25), fs=self.fs, ftype="butter", btype="band", output='sos')
             # b, a = iirfilter(order, Wn=(base_freq * 0.75, base_freq * 1.25), fs=fs, ftype="cheby1", btype="band", rp=0.4)
             signal = y_clip
             for _ in range(4):
-                signal = filtfilt(b, a, signal)
+                signal = sosfiltfilt(sos, signal)
             analytic_signal :np.ndarray = hilbert(signal) # type: ignore
             instantaneous_phase = np.unwrap(np.angle(analytic_signal))
             instantaneous_frequency = (np.diff(instantaneous_phase) / (2.0*np.pi) * self.fs)

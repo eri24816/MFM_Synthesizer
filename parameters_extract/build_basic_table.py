@@ -1,13 +1,13 @@
 from src.tableGeneration import tableGeneration
 from pathlib import Path
-instr = 'violin'
+instr = 'cello'
 genre = 'sustain'
-pitch_start = 55
-pitch_end = 100
+pitch_start = 36
+pitch_end = 81
 
 tg = tableGeneration()
-if instr == 'cello':
-    tg.max_freq = 2000
+# if instr == 'cello':
+#     tg.max_freq = 2000
 
 for pitch in range(pitch_start,pitch_end+1):
     audio_path = Path(f'data/{instr}/{genre}/audio/{pitch}.wav')
