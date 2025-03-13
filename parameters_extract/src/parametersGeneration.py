@@ -45,15 +45,21 @@ class parametersGeneration:
         for _ in range(round(times / 2)):
             output = filtfilt(b, a, output)
         return output
+    
+    def timessosfiltfilt(self, sos, signal, times):
+        output = signal
+        for _ in range(round(times / 2)):
+            output = sosfiltfilt(sos, output)
+        return output
 
     def filter_apply(self, signal, base_freq, over_freq, cutoff_var, order, times):
         lcf = (over_freq)-(base_freq/2 - cutoff_var)
         hcf = (over_freq)+(base_freq/2 - cutoff_var)
         if base_freq == over_freq:
-            b, a = iirfilter(order, Wn=hcf, fs=self.fs, ftype="butter", btype="lowpass")
+            sos = iirfilter(order, Wn=hcf, fs=self.fs, ftype="butter", btype="lowpass", output='sos')
         else:
-            b, a = iirfilter(order, Wn=(lcf, hcf), fs=self.fs, ftype="butter", btype="band")    
-        output = self.timesfilt(b, a, signal, times)
+            sos = iirfilter(order, Wn=(lcf, hcf), fs=self.fs, ftype="butter", btype="band", output='sos')    
+        output = self.timessosfiltfilt(sos, signal, times)
         return output
 
     def init_base_freq(self, y_clip, base_freq, order):
@@ -66,7 +72,7 @@ class parametersGeneration:
             analytic_signal :np.ndarray = hilbert(signal) # type: ignore
             instantaneous_phase = np.unwrap(np.angle(analytic_signal))
             instantaneous_frequency = (np.diff(instantaneous_phase) / (2.0*np.pi) * self.fs)
-            new_base_freq = np.mean(instantaneous_frequency[8000:80000]) / 2 # use 0.2s to 2s for freq estimation
+            new_base_freq = np.mean(instantaneous_frequency[8000:40000]) / 2 # use 0.2s to 4s for freq estimation
             diff = new_base_freq - base_freq
         return new_base_freq, diff
     

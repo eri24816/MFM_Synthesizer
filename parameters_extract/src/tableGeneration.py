@@ -265,6 +265,12 @@ class tableGeneration(parametersGeneration):
             pars['alphaGlobal'].append(self.resample(alpha_global[start:], self.fs, self.par_sr))
             pars['magGlobal'].append(self.resample(mag_global[start:], self.fs, self.par_sr))
             pars['magRatio'].append(self.resample(mag_global[start:] / envelope_sus, self.fs, self.par_sr))
+
+            # check nan in all pars
+            for key, value in pars.items():
+                if isinstance(value, list) and len(value) > 0 and isinstance(value[-1], np.ndarray):
+                    if np.isnan(value[-1]).any():
+                        print(f'{key} has nan at pitch: {pitch}, partial: {partial}, {over_freq} Hz')
         
         # convert all float64 to float32
         for key, value in pars.items():
