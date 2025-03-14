@@ -131,20 +131,20 @@ class tableGeneration(parametersGeneration):
             '''
 
 
-            # # hilbert drop clip (attack & release)
-            # pars['magAttack'].append(mag[:self.attack_len].tolist())
-            # # pars['magRelease'].append(mag[-self.release_len:].tolist())
-            # mag_sus = mag[start:]
-            # alpha_sus = alpha[start:]
+            # hilbert drop clip (attack & release)
+            pars['magAttack'].append(mag[:self.attack_len].tolist())
+            pars['magRelease'].append(mag[-self.release_len:].tolist())
+            mag_sus = mag[start:]
+            alpha_sus = alpha[start:]
             
-            # # alpha extract
-            # z = np.polyfit(t_sus, alpha_sus, 1)
-            # p = np.poly1d(z)
-            # alpha -= p(t)
-            # alpha_attack = alpha[:self.attack_len]
-            # alpha_release = alpha[-self.release_len:]
-            # pars['alphaAttack'].append(alpha_attack.tolist())
-            # # pars['alphaRelease'].append(alpha_release.tolist())
+            # alpha extract
+            z = np.polyfit(t_sus, alpha_sus, 1)
+            p = np.poly1d(z)
+            alpha -= p(t)
+            alpha_attack = alpha[:self.attack_len]
+            alpha_release = alpha[-self.release_len:]
+            pars['alphaAttack'].append(alpha_attack.tolist())
+            pars['alphaRelease'].append(alpha_release.tolist())
             
             '''
             Sustain
